@@ -1,0 +1,40 @@
+{
+  "name": "cursor-rules-library",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cursor Rules Library — curated .cursorrules files for every framework, one-click install",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "bin": {
+    "cursor-rules-install": "./cli/install.js"
+  },
+  "dependencies": {
+    "@lemonsqueezy/lemonsqueezy.js": "^3.0.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "commander": "^14.0.1",
+    "fuse.js": "^7.1.0",
+    "gray-matter": "^4.0.3",
+    "lucide-react": "^0.511.0",
+    "next": "^15.3.0",
+    "next-auth": "^5.0.0-beta.30",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss": "^4.1.10"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.5",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

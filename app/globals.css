@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: #0d1117;
+}
+
+body {
+  color: #e6edf3;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-image:
+    radial-gradient(circle at 15% -10%, rgba(47, 129, 247, 0.22), transparent 35%),
+    radial-gradient(circle at 90% 10%, rgba(22, 163, 74, 0.16), transparent 25%),
+    linear-gradient(180deg, #0d1117 0%, #0d1117 72%, #0c1622 100%);
+}
+
+pre,
+code,
+kbd,
+samp {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+::selection {
+  background: rgba(88, 166, 255, 0.35);
+  color: #e6edf3;
+}
