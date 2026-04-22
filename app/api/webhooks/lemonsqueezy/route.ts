@@ -1,84 +1,63 @@
-import { NextRequest } from "next/server";
-import { upsertPurchase } from "@/lib/database";
-import { verifyLemonSignature } from "@/lib/lemonsqueezy";
-import type { PurchaseRecord } from "@/types/rule";
+import { NextRequest, NextResponse } from "next/server";
 
-function parsePayload(payload: unknown): PurchaseRecord | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
+import { recordPaidEmail } from "@/lib/database";
+import { extractPaidEmail, verifyStripeSignature, type StripeWebhookEvent } from "@/lib/lemonsqueezy";
 
-  const source = payload as {
-    meta?: { event_name?: string };
-    data?: {
-      id?: string;
-      attributes?: {
-        status?: string;
-        user_email?: string;
-        customer_email?: string;
-        product_id?: number;
-        variant_id?: number;
-        order_id?: number;
-      };
-    };
-  };
-
-  const eventName = source.meta?.event_name ?? "unknown";
-  const attrs = source.data?.attributes ?? {};
-
-  const rawOrderId =
-    attrs.order_id ??
-    (typeof source.data?.id === "string" || typeof source.data?.id === "number"
-      ? source.data.id
-      : undefined);
-
-  if (!rawOrderId) {
-    return null;
-  }
-
-  const normalizedStatus =
-    attrs.status === "paid" || eventName.includes("order_created") || eventName.includes("subscription_payment_success")
-      ? "paid"
-      : eventName.includes("refund") || attrs.status === "refunded"
-        ? "refunded"
-        : "pending";
-
-  const now = new Date().toISOString();
-
-  return {
-    orderId: String(rawOrderId),
-    customerEmail: attrs.user_email ?? attrs.customer_email ?? "",
-    status: normalizedStatus,
-    productId: attrs.product_id ? String(attrs.product_id) : undefined,
-    variantId: attrs.variant_id ? String(attrs.variant_id) : undefined,
-    createdAt: now,
-    updatedAt: now,
-    sourceEvent: eventName,
-  };
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "POST Stripe webhook events here to unlock paid user access."
+  });
 }
 
 export async function POST(request: NextRequest) {
-  const signature = request.headers.get("x-signature");
-  const bodyText = await request.text();
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const payload = await request.text();
 
-  if (!verifyLemonSignature(bodyText, signature)) {
-    return Response.json({ error: "Invalid signature" }, { status: 401 });
+  if (!secret) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "STRIPE_WEBHOOK_SECRET is not configured."
+      },
+      { status: 503 }
+    );
   }
 
-  let payload: unknown;
+  const signature = request.headers.get("stripe-signature");
+  const valid = verifyStripeSignature({
+    payload,
+    signatureHeader: signature,
+    secret
+  });
+
+  if (!valid) {
+    return NextResponse.json({ ok: false, message: "Invalid Stripe signature." }, { status: 400 });
+  }
+
+  let event: StripeWebhookEvent;
+
   try {
-    payload = JSON.parse(bodyText);
+    event = JSON.parse(payload) as StripeWebhookEvent;
   } catch {
-    return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ ok: false, message: "Malformed event payload." }, { status: 400 });
   }
 
-  const purchaseRecord = parsePayload(payload);
+  const email = extractPaidEmail(event);
 
-  if (!purchaseRecord) {
-    return Response.json({ ok: true, skipped: true });
+  if (!email) {
+    return NextResponse.json({ ok: true, ignored: true, eventType: event.type });
   }
 
-  await upsertPurchase(purchaseRecord);
+  await recordPaidEmail({
+    email,
+    source: "stripe-webhook",
+    checkoutSessionId: event.data?.object?.id
+  });
 
-  return Response.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    eventType: event.type,
+    unlockedEmail: email.toLowerCase()
+  });
 }

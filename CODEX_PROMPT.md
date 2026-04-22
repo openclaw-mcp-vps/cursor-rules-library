@@ -11,25 +11,25 @@ NICHE: ai-dev-tools
 PRICE: $$7/mo/mo
 
 ARCHITECTURE SPEC:
-A Next.js web app with a searchable library of .cursorrules files, CLI tool for installation, and Lemon Squeezy subscription management. Users browse curated rules by framework, preview content, and install via npx command or direct download.
+A Next.js web app with a curated library of .cursorrules files organized by framework. Users can browse, preview, and install rules via a CLI tool, with premium features for subscribers.
 
 PLANNED FILES:
 - app/page.tsx
 - app/browse/page.tsx
-- app/rule/[slug]/page.tsx
 - app/api/rules/route.ts
-- app/api/webhooks/lemonsqueezy/route.ts
 - app/api/auth/route.ts
+- app/api/webhooks/lemonsqueezy/route.ts
 - components/RuleCard.tsx
-- components/SearchFilters.tsx
-- components/InstallButton.tsx
+- components/RulePreview.tsx
+- components/CLIInstaller.tsx
 - lib/database.ts
 - lib/lemonsqueezy.ts
+- lib/auth.ts
 - data/rules.json
+- scripts/sync-rules.ts
 - cli/install.js
-- package.json
 
-DEPENDENCIES: next, tailwindcss, @lemonsqueezy/lemonsqueezy.js, prisma, @prisma/client, next-auth, lucide-react, fuse.js, gray-matter, commander
+DEPENDENCIES: next, tailwindcss, @lemonsqueezy/lemonsqueezy.js, next-auth, prisma, @prisma/client, zod, lucide-react, commander, node-fetch
 
 REQUIREMENTS:
 - Next.js 15 with App Router (app/ directory)
@@ -37,7 +37,7 @@ REQUIREMENTS:
 - Tailwind CSS v4
 - shadcn/ui components (npx shadcn@latest init, then add needed components)
 - Dark theme ONLY — background #0d1117, no light mode
-- Lemon Squeezy checkout overlay for payments
+- Stripe Payment Link for payments (hosted checkout — use the URL directly as the Buy button href)
 - Landing page that converts: hero, problem, solution, pricing, FAQ
 - The actual tool/feature behind a paywall (cookie-based access after purchase)
 - Mobile responsive
@@ -57,9 +57,13 @@ REQUIREMENTS:
   to package.json dependencies and re-run npm install + npm run build until it passes.
 
 ENVIRONMENT VARIABLES (create .env.example):
-- NEXT_PUBLIC_LEMON_SQUEEZY_STORE_ID
-- NEXT_PUBLIC_LEMON_SQUEEZY_PRODUCT_ID
-- LEMON_SQUEEZY_WEBHOOK_SECRET
+- NEXT_PUBLIC_STRIPE_PAYMENT_LINK  (full URL, e.g. https://buy.stripe.com/test_XXX)
+- NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  (pk_test_... or pk_live_...)
+- STRIPE_WEBHOOK_SECRET  (set when webhook is wired)
+
+BUY BUTTON RULE: the Buy button's href MUST be `process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK`
+used as-is — do NOT construct URLs from a product ID, do NOT prepend any base URL,
+do NOT wrap it in an embed iframe. The link opens Stripe's hosted checkout directly.
 
 After creating all files:
 1. Run: npm install

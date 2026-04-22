@@ -1,204 +1,232 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { ArrowRight, Check, Sparkles } from "lucide-react";
-import { PricingCheckout } from "@/components/PricingCheckout";
-import { RuleCard } from "@/components/RuleCard";
-import { Badge } from "@/components/ui/badge";
-import { getFeaturedRules, getRecentWeeklyRules } from "@/lib/database";
+import { ArrowRight, CheckCircle2, Library, Rocket, ShieldCheck, Sparkles } from "lucide-react";
 
-const faqItems = [
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { getRuleStats, searchRules } from "@/lib/database";
+
+const faqs = [
   {
-    question: "What do I get for $7/month?",
+    question: "How is this different from awesome-cursorrules?",
     answer:
-      "Full access to all 240 curated .cursorrules files, weekly community additions, searchable framework filters, and direct install commands for every rule.",
+      "awesome-cursorrules is an excellent discovery list, but it is still static Markdown. Cursor Rules Library adds structured search, in-browser preview, and one-command installs so teams can move from discovery to implementation immediately."
   },
   {
-    question: "How does installation work?",
+    question: "What do I get after subscribing?",
     answer:
-      "Every rule has a one-command installer (`npx cursor-rules-install install <slug>`) and a direct .cursorrules download option if you prefer manual setup.",
+      "You unlock the full premium catalog, receive weekly additions from community submissions, and can install any rule directly into a project using the CLI tool without copy-paste drift."
   },
   {
-    question: "Is this just copied markdown from GitHub?",
+    question: "How do I activate access after Stripe checkout?",
     answer:
-      "No. Rules are normalized, structured for direct use, and maintained with consistent quality standards so teams can adopt them quickly.",
+      "After checkout, return to /browse and verify the same payment email you used on Stripe. The app issues a secure cookie so premium previews and CLI installs are available immediately."
   },
   {
-    question: "Can I fork a rule for my own team conventions?",
+    question: "Can I customize a rule for my team style guide?",
     answer:
-      "Yes. Each rule page includes a fork action so you can copy the full baseline and customize it for project-specific workflows.",
-  },
+      "Yes. Every rule is plain text and designed to be forked. Start with a curated baseline, adjust naming, architecture boundaries, and testing expectations, then commit the result to your repo."
+  }
 ];
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ order_id?: string }>;
-}) {
-  const params = await searchParams;
-  if (params.order_id) {
-    redirect(`/api/auth?order_id=${encodeURIComponent(params.order_id)}`);
-  }
-
-  const [featuredRules, weeklyRules] = await Promise.all([
-    getFeaturedRules(6),
-    getRecentWeeklyRules(6),
-  ]);
+export default async function HomePage() {
+  const stats = await getRuleStats();
+  const featured = await searchRules({ limit: 6, includePremium: true });
 
   return (
-    <main>
-      <header className="border-b border-[#30363d]/70 bg-[#0d1117]/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-          <Link href="/" className="text-lg font-semibold text-[#e6edf3]">
+    <main className="mx-auto w-full max-w-6xl px-6 pb-16 pt-10 sm:px-8 lg:px-12">
+      <section className="rounded-2xl border border-[#273246] bg-[linear-gradient(140deg,rgba(11,17,30,0.95),rgba(17,24,39,0.92))] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.35)] sm:p-12">
+        <div className="space-y-6">
+          <Badge className="w-fit">AI Dev Tools</Badge>
+          <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-white sm:text-6xl">
             Cursor Rules Library
-          </Link>
-          <nav className="flex items-center gap-5 text-sm text-[#9fb3c8]">
-            <a href="#pricing" className="hover:text-[#e6edf3]">
-              Pricing
-            </a>
-            <a href="#faq" className="hover:text-[#e6edf3]">
-              FAQ
-            </a>
-            <Link href="/browse" className="inline-flex items-center gap-1 text-[#79c0ff] hover:text-[#a5d6ff]">
-              Browse rules
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="mx-auto grid w-full max-w-6xl gap-10 px-6 pb-14 pt-16 md:grid-cols-[1.15fr_0.85fr] md:items-center">
-        <div>
-          <Badge variant="success" className="mb-4">
-            Weekly new rules from the community
-          </Badge>
-          <h1 className="max-w-2xl text-4xl font-semibold leading-tight text-[#f0f6fc] md:text-5xl">
-            Cursor Rules Library
-            <br />
-            curated .cursorrules files for every framework, one-click install
+            <span className="mt-2 block text-2xl font-medium text-[#7dd3fc] sm:text-3xl">
+              Curated .cursorrules files for every framework, one-click install.
+            </span>
           </h1>
-          <p className="mt-5 max-w-xl text-base text-[#9fb3c8] md:text-lg">
-            Stop copy-pasting static markdown. Find production-ready rules for Next.js, Rust, Go,
-            Python, and more. Preview, fork, and ship faster with an install flow that takes less than 30 seconds.
+          <p className="max-w-2xl text-lg text-[#cbd5e1]">
+            Browse {stats.totalRules}+ curated rules across {stats.totalFrameworks} frameworks. Preview, fork,
+            and install in seconds. Weekly community additions keep your prompts current as stacks evolve.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <PricingCheckout className="sm:w-auto" />
-            <Link
-              href="/browse"
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-[#30363d] px-5 text-sm font-medium text-[#e6edf3] hover:bg-[#161b22]"
-            >
-              Explore locked library
-            </Link>
-          </div>
-          <div className="mt-6 grid gap-2 text-sm text-[#9fb3c8]">
-            <p className="inline-flex items-center gap-2">
-              <Check className="h-4 w-4 text-[#56d364]" />
-              240 framework-specific rules maintained weekly
-            </p>
-            <p className="inline-flex items-center gap-2">
-              <Check className="h-4 w-4 text-[#56d364]" />
-              Copy-ready commands and direct downloads
-            </p>
-            <p className="inline-flex items-center gap-2">
-              <Check className="h-4 w-4 text-[#56d364]" />
-              Built for Cursor and Claude Code workflows
-            </p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[#30363d] bg-[#11161d] p-6">
-          <p className="text-xs uppercase tracking-wide text-[#79c0ff]">Install flow</p>
-          <pre className="mt-3 overflow-x-auto rounded-lg bg-[#0d1117] p-4 text-sm text-[#c9d1d9]">
-{`npx cursor-rules-install install nextjs-core-architecture \\
-  --base-url https://cursor-rules-library.com`}
-          </pre>
-          <p className="mt-3 text-sm text-[#9fb3c8]">
-            Installer writes `.cursorrules` in your project root and keeps your repo ready for AI pair programming.
-          </p>
-          <div className="mt-4 rounded-lg border border-[#30363d] bg-[#0d1117] p-4">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-[#e6edf3]">
-              <Sparkles className="h-4 w-4 text-[#79c0ff]" />
-              New this week
-            </p>
-            <ul className="mt-2 space-y-2 text-sm text-[#9fb3c8]">
-              {weeklyRules.slice(0, 3).map((rule) => (
-                <li key={rule.slug} className="truncate">
-                  {rule.name}
-                </li>
-              ))}
-            </ul>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild size="lg">
+              <Link href="/browse">
+                Explore the library
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <a
+                href={process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK as string}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Start subscriber access ($7/mo)
+              </a>
+            </Button>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-6 pb-12">
-        <div className="grid gap-5 md:grid-cols-3">
-          <article className="rounded-xl border border-[#30363d] bg-[#11161d] p-5">
-            <h2 className="text-lg font-semibold text-[#f0f6fc]">The problem</h2>
-            <p className="mt-2 text-sm text-[#9fb3c8]">
-              `awesome-cursorrules` has huge reach but it is static markdown. Teams still spend time manually
-              copying, cleaning, and adapting rules before they can start coding.
-            </p>
-          </article>
-          <article className="rounded-xl border border-[#30363d] bg-[#11161d] p-5">
-            <h2 className="text-lg font-semibold text-[#f0f6fc]">The solution</h2>
-            <p className="mt-2 text-sm text-[#9fb3c8]">
-              A hosted, searchable library with normalized metadata, framework filters, and direct installation.
-              Open a rule and install immediately with one command.
-            </p>
-          </article>
-          <article className="rounded-xl border border-[#30363d] bg-[#11161d] p-5">
-            <h2 className="text-lg font-semibold text-[#f0f6fc]">Why now</h2>
-            <p className="mt-2 text-sm text-[#9fb3c8]">
-              Cursor and Claude Code users switch stacks constantly. Paying $7/month to skip setup friction is a clear
-              convenience wedge that saves engineering time every week.
-            </p>
-          </article>
-        </div>
+      <section className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Curated Rules" value={`${stats.totalRules}+`} icon={<Library className="h-5 w-5" />} />
+        <StatCard
+          label="Framework Coverage"
+          value={`${stats.totalFrameworks}`}
+          icon={<Sparkles className="h-5 w-5" />}
+        />
+        <StatCard label="Free Starters" value={`${stats.freeRules}`} icon={<Rocket className="h-5 w-5" />} />
+        <StatCard label="Premium Depth" value={`${stats.premiumRules}`} icon={<ShieldCheck className="h-5 w-5" />} />
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-6 pb-12">
-        <div className="mb-5 flex items-end justify-between">
-          <h2 className="text-2xl font-semibold text-[#f0f6fc]">Featured rules</h2>
-          <Link href="/browse" className="text-sm text-[#79c0ff] hover:text-[#a5d6ff]">
-            View full library
+      <section className="mt-14 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Problem</CardTitle>
+            <CardDescription>Static lists slow down project switches and team onboarding.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-[#cbd5e1]">
+            <p>
+              Developers switching between Next.js, Rust, Go, and Python stacks keep reusing stale prompt files or
+              random snippets from docs.
+            </p>
+            <p>
+              awesome-cursorrules has huge demand with 25k stars, but static Markdown still requires manual searching,
+              copy-paste, and local cleanup before each project.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Solution</CardTitle>
+            <CardDescription>Hosted rules library with install flow built for speed.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-[#cbd5e1]">
+            <p>
+              Cursor Rules Library ships reviewed .cursorrules files organized by framework and workflow. Every rule has
+              install metadata, practical defaults, and maintenance history.
+            </p>
+            <p>
+              Teams can preview before committing, fork rules for internal standards, and install from CLI with a single
+              command.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-14">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-semibold">Popular Framework Packs</h2>
+          <Link className="text-sm text-[#7dd3fc] hover:underline" href="/browse">
+            View all packs
           </Link>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {featuredRules.map((rule) => (
-            <RuleCard key={rule.slug} rule={rule} locked />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((rule) => (
+            <Card key={rule.slug}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{rule.framework}</CardTitle>
+                  {rule.isPremium ? <Badge variant="premium">Premium</Badge> : <Badge variant="success">Free</Badge>}
+                </div>
+                <CardDescription>{rule.summary}</CardDescription>
+              </CardHeader>
+              <CardContent className="text-sm text-[var(--muted)]">{rule.whenToUse}</CardContent>
+              <CardFooter>
+                <Button asChild variant="secondary" className="w-full">
+                  <Link href={`/browse?slug=${rule.slug}`}>Preview rule</Link>
+                </Button>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       </section>
 
-      <section id="pricing" className="mx-auto w-full max-w-6xl px-6 pb-12">
-        <div className="rounded-2xl border border-[#30363d] bg-[#11161d] p-8 md:p-10">
-          <h2 className="text-3xl font-semibold text-[#f0f6fc]">Simple pricing for working engineers</h2>
-          <p className="mt-3 max-w-2xl text-[#9fb3c8]">
-            One plan. Full rule library access, weekly updates, and CLI install support across all frameworks.
-          </p>
-          <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-4xl font-semibold text-[#f0f6fc]">
-                $7
-                <span className="text-lg font-medium text-[#9fb3c8]">/month</span>
-              </p>
-              <p className="mt-2 text-sm text-[#9fb3c8]">7-day trial included, cancel anytime.</p>
+      <section className="mt-14">
+        <Card className="border-[#115e59]">
+          <CardHeader>
+            <CardTitle>Pricing</CardTitle>
+            <CardDescription>Single plan designed for active Cursor and Claude Code users.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <p className="text-4xl font-bold text-white">$7<span className="text-lg text-[#94a3b8]">/month</span></p>
+                <p className="mt-2 text-sm text-[#cbd5e1]">Cancel anytime. New rule drops every week.</p>
+              </div>
+              <Button asChild size="lg">
+                <a
+                  href={process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK as string}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Subscribe via Stripe
+                </a>
+              </Button>
             </div>
-            <PricingCheckout />
-          </div>
-        </div>
+            <Separator />
+            <ul className="grid gap-3 text-sm text-[#d1d5db] sm:grid-cols-2">
+              {[
+                "Full premium framework catalog",
+                "One-command CLI installer",
+                "Weekly community rule releases",
+                "Fork-friendly rule structure",
+                "Paywalled browsing + private installs",
+                "Direct checkout on Stripe hosted page"
+              ].map((item) => (
+                <li key={item} className="inline-flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-[#4fd1c5]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       </section>
 
-      <section id="faq" className="mx-auto w-full max-w-6xl px-6 pb-20">
-        <h2 className="text-2xl font-semibold text-[#f0f6fc]">FAQ</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {faqItems.map((item) => (
-            <article key={item.question} className="rounded-xl border border-[#30363d] bg-[#11161d] p-5">
-              <h3 className="text-base font-semibold text-[#e6edf3]">{item.question}</h3>
-              <p className="mt-2 text-sm text-[#9fb3c8]">{item.answer}</p>
-            </article>
+      <section className="mt-14">
+        <h2 className="text-2xl font-semibold">FAQ</h2>
+        <div className="mt-6 space-y-4">
+          {faqs.map((faq) => (
+            <Card key={faq.question}>
+              <CardHeader>
+                <CardTitle className="text-lg">{faq.question}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-[#cbd5e1]">{faq.answer}</CardContent>
+            </Card>
           ))}
         </div>
       </section>
     </main>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  icon
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between p-5">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[#94a3b8]">{label}</p>
+          <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
+        </div>
+        <div className="rounded-md border border-[#1f2937] bg-[#0b1220] p-2 text-[#7dd3fc]">{icon}</div>
+      </CardContent>
+    </Card>
   );
 }

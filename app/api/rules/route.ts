@@ -1,87 +1,93 @@
-import Fuse from "fuse.js";
-import { NextRequest } from "next/server";
-import { getPurchaseByOrderId, getRuleBySlug, getRules } from "@/lib/database";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-async function hasPaidAccess(request: NextRequest) {
-  const hasCookie = request.cookies.get("crl_access")?.value === "1";
-  if (hasCookie) {
-    return true;
-  }
+import { getTokenFromRequest, verifyAccessToken } from "@/lib/auth";
+import {
+  createRulePreview,
+  findRuleBySlug,
+  getFrameworks,
+  getRuleStats,
+  searchRules
+} from "@/lib/database";
 
-  const orderId = request.nextUrl.searchParams.get("order_id");
-  if (!orderId) {
-    return false;
-  }
-
-  const purchase = await getPurchaseByOrderId(orderId);
-  return Boolean(purchase && purchase.status === "paid");
-}
+const querySchema = z.object({
+  slug: z.string().min(1).optional(),
+  q: z.string().optional(),
+  framework: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(500).optional(),
+  format: z.enum(["json", "raw"]).optional()
+});
 
 export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const slug = url.searchParams.get("slug");
-  const framework = url.searchParams.get("framework");
-  const query = url.searchParams.get("q") ?? "";
-  const limit = Number(url.searchParams.get("limit") ?? "200");
-  const format = url.searchParams.get("format");
-  const canAccess = await hasPaidAccess(request);
+  const params = Object.fromEntries(request.nextUrl.searchParams.entries());
+  const parsed = querySchema.safeParse(params);
+
+  if (!parsed.success) {
+    return NextResponse.json({ message: "Invalid query parameters" }, { status: 400 });
+  }
+
+  const token = getTokenFromRequest(request);
+  const session = verifyAccessToken(token);
+  const authenticated = Boolean(session);
+
+  const { slug, q, framework, limit, format } = parsed.data;
 
   if (slug) {
-    const rule = await getRuleBySlug(slug);
+    const rule = await findRuleBySlug(slug);
+
     if (!rule) {
-      return Response.json({ error: "Rule not found" }, { status: 404 });
+      return NextResponse.json({ message: "Rule not found" }, { status: 404 });
     }
 
-    if (!canAccess && format === "raw") {
-      return Response.json(
-        { error: "Subscription required for full rule downloads" },
-        { status: 403 }
+    if (rule.isPremium && !authenticated) {
+      return NextResponse.json(
+        {
+          message: "Premium rule. Subscribe to install this framework.",
+          authenticated,
+          rule: {
+            ...rule,
+            content: createRulePreview(rule.content, 12),
+            locked: true
+          }
+        },
+        { status: 402 }
       );
     }
 
     if (format === "raw") {
-      return new Response(rule.content, {
+      return new NextResponse(rule.content, {
         status: 200,
         headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "content-disposition": `attachment; filename=\"${rule.slug}.cursorrules\"`,
-          "cache-control": "public, max-age=600",
-        },
+          "content-type": "text/plain; charset=utf-8"
+        }
       });
     }
 
-    if (!canAccess) {
-      const preview = rule.content.split("\n").slice(0, 14).join("\n");
-      return Response.json({
-        rule: { ...rule, content: preview },
-        previewOnly: true,
-      });
-    }
-
-    return Response.json({ rule, previewOnly: false });
+    return NextResponse.json({ authenticated, rule: { ...rule, locked: false } });
   }
 
-  let rules = await getRules();
+  const rules = await searchRules({
+    query: q,
+    framework,
+    includePremium: true,
+    limit
+  });
 
-  if (framework && framework !== "all") {
-    rules = rules.filter((rule) => rule.framework === framework);
-  }
+  const frameworks = await getFrameworks();
+  const stats = await getRuleStats();
 
-  if (query.trim()) {
-    const fuse = new Fuse(rules, {
-      threshold: 0.32,
-      keys: ["name", "framework", "description", "tags"],
-    });
-    rules = fuse.search(query.trim()).map((result) => result.item);
-  }
-
-  if (!canAccess) {
-    rules = rules.filter((rule) => rule.featured || rule.weeklyNew).slice(0, 18);
-  }
-
-  return Response.json({
+  return NextResponse.json({
+    authenticated,
+    frameworks,
+    stats,
     total: rules.length,
-    rules: rules.slice(0, Number.isFinite(limit) ? limit : 200),
-    locked: !canAccess,
+    rules: rules.map((rule) => {
+      const locked = rule.isPremium && !authenticated;
+      return {
+        ...rule,
+        content: locked ? createRulePreview(rule.content, 8) : rule.content,
+        locked
+      };
+    })
   });
 }

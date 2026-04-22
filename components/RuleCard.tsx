@@ -1,60 +1,63 @@
 import Link from "next/link";
-import { ArrowRight, Clock3 } from "lucide-react";
+import { Download, LockKeyhole, Terminal } from "lucide-react";
+
+import type { Rule } from "@/lib/database";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import type { Rule } from "@/types/rule";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 type RuleCardProps = {
   rule: Rule;
   locked?: boolean;
+  active?: boolean;
 };
 
-function formatDate(value: string) {
-  const date = new Date(value);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-export function RuleCard({ rule, locked = false }: RuleCardProps) {
+export function RuleCard({ rule, locked = false, active = false }: RuleCardProps) {
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Badge>{rule.framework}</Badge>
-          {rule.weeklyNew ? <Badge variant="success">New this week</Badge> : null}
+    <Card className={active ? "border-[#4fd1c5]" : ""}>
+      <CardHeader className="gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle className="text-lg">{rule.framework}</CardTitle>
+            <p className="mt-1 text-sm text-[var(--muted)]">{rule.summary}</p>
+          </div>
+          {rule.isPremium ? <Badge variant="premium">Premium</Badge> : <Badge variant="success">Free</Badge>}
         </div>
-        <CardTitle>{rule.name}</CardTitle>
-        <CardDescription>{rule.description}</CardDescription>
+        <div className="flex flex-wrap gap-2">
+          {rule.tags.slice(0, 3).map((tag) => (
+            <Badge variant="secondary" key={`${rule.slug}-${tag}`}>
+              {tag}
+            </Badge>
+          ))}
+        </div>
       </CardHeader>
-      <CardContent className="flex flex-wrap items-center gap-2">
-        {rule.tags.slice(0, 3).map((tag) => (
-          <Badge key={tag} variant="accent">
-            {tag}
-          </Badge>
-        ))}
+      <CardContent className="space-y-2 text-sm text-[var(--muted)]">
+        <p>{rule.whenToUse}</p>
+        <div className="flex items-center justify-between text-xs">
+          <span className="inline-flex items-center gap-1">
+            <Download className="h-3.5 w-3.5" />
+            {rule.downloads.toLocaleString()} installs
+          </span>
+          <span>Updated {new Date(rule.updatedAt).toLocaleDateString()}</span>
+        </div>
       </CardContent>
-      <CardFooter className="mt-auto flex items-center justify-between text-sm text-[#9fb3c8]">
-        <span className="inline-flex items-center gap-1">
-          <Clock3 className="h-4 w-4" />
-          Updated {formatDate(rule.updatedAt)}
-        </span>
-        <Link
-          href={`/rule/${rule.slug}`}
-          className="inline-flex items-center gap-1 font-medium text-[#79c0ff] transition hover:text-[#a5d6ff]"
-        >
-          {locked ? "Preview" : "Open"}
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+      <CardFooter className="justify-between gap-2">
+        <Button asChild variant="secondary" size="sm">
+          <Link href={`/browse?slug=${rule.slug}`}>
+            <Terminal className="mr-2 h-4 w-4" />
+            Preview
+          </Link>
+        </Button>
+        {locked ? (
+          <Button variant="outline" size="sm" className="cursor-default" disabled>
+            <LockKeyhole className="mr-2 h-4 w-4" />
+            Locked
+          </Button>
+        ) : (
+          <Button asChild size="sm">
+            <Link href={`/browse?slug=${rule.slug}`}>Install</Link>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

@@ -2,39 +2,38 @@
   "name": "cursor-rules-library",
   "version": "1.0.0",
   "private": true,
-  "description": "Cursor Rules Library — curated .cursorrules files for every framework, one-click install",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "sync:rules": "tsx scripts/sync-rules.ts"
   },
   "bin": {
-    "cursor-rules-install": "./cli/install.js"
+    "cursor-rules-library": "./cli/install.js"
   },
   "dependencies": {
-    "@lemonsqueezy/lemonsqueezy.js": "^3.0.1",
+    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tailwindcss/postcss": "^4.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "commander": "^14.0.1",
-    "fuse.js": "^7.1.0",
-    "gray-matter": "^4.0.3",
-    "lucide-react": "^0.511.0",
-    "next": "^15.3.0",
-    "next-auth": "^5.0.0-beta.30",
+    "commander": "^14.0.3",
+    "lucide-react": "^1.8.0",
+    "next": "15.5.15",
+    "next-auth": "^4.24.14",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "^3.3.0",
-    "tailwindcss": "^4.1.10"
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.10",
-    "@types/node": "^22.15.3",
-    "@types/react": "^19.0.12",
-    "@types/react-dom": "^19.0.5",
-    "typescript": "^5.8.3"
-  },
-  "engines": {
-    "node": ">=20.0.0"
+    "@types/node": "^22.15.29",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

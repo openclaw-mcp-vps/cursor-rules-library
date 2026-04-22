@@ -1,66 +1,61 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+const sans = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
+  variable: "--font-sans"
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const mono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
+  weight: ["400", "500", "600"],
+  variable: "--font-mono"
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://cursor-rules-library.com"),
   title: {
     default: "Cursor Rules Library",
-    template: "%s | Cursor Rules Library",
+    template: "%s | Cursor Rules Library"
   },
   description:
-    "Browse 200+ curated .cursorrules files by framework. Preview, fork, and install with one command. Weekly community updates for Cursor and Claude Code users.",
+    "Browse 200+ curated .cursorrules files for every framework. Preview, fork, and install rules in one command.",
   keywords: [
     "cursorrules",
     "cursor",
     "claude code",
-    "ai developer tools",
-    "next.js",
-    "rust",
-    "go",
+    "ai dev tools",
     "prompt engineering",
+    "developer workflow"
   ],
   openGraph: {
     title: "Cursor Rules Library",
     description:
-      "Curated .cursorrules files for every framework with one-click install and weekly new rules.",
-    url: "https://cursor-rules-library.com",
-    siteName: "Cursor Rules Library",
+      "Install battle-tested .cursorrules files for Next.js, Rust, Go, and 200+ stacks.",
     type: "website",
+    siteName: "Cursor Rules Library",
+    url: "https://cursor-rules-library.com"
   },
   twitter: {
     card: "summary_large_image",
     title: "Cursor Rules Library",
     description:
-      "Curated .cursorrules files for every framework with one-click install.",
+      "Curated .cursorrules for every framework with one-click install and weekly drops."
   },
   alternates: {
-    canonical: "/",
-  },
+    canonical: "/"
+  }
 };
 
 export default function RootLayout({
-  children,
+  children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
-      <body className="antialiased">
-        <div className="min-h-screen">{children}</div>
-      </body>
+    <html lang="en" className="dark">
+      <body className={`${sans.variable} ${mono.variable} antialiased`}>{children}</body>
     </html>
   );
 }

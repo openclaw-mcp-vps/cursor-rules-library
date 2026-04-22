@@ -1,64 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPurchaseByOrderId } from "@/lib/database";
+import { z } from "zod";
 
-const ACCESS_COOKIE = "crl_access";
+import {
+  clearAccessCookie,
+  createAccessToken,
+  getTokenFromRequest,
+  setAccessCookie,
+  verifyAccessToken
+} from "@/lib/auth";
+import { hasPaidEmail } from "@/lib/database";
 
-function setAccessCookie(response: NextResponse, orderId: string) {
-  response.cookies.set(ACCESS_COOKIE, "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 31,
-  });
+const verifySchema = z.object({
+  email: z.string().email(),
+  action: z.enum(["verify-purchase", "logout"]).optional()
+});
 
-  response.cookies.set("crl_order_id", orderId, {
-    httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 31,
-  });
-
-  return response;
-}
+const logoutSchema = z.object({
+  action: z.literal("logout")
+});
 
 export async function GET(request: NextRequest) {
-  const orderId = request.nextUrl.searchParams.get("order_id");
+  const token = getTokenFromRequest(request);
+  const session = verifyAccessToken(token);
 
-  if (!orderId) {
+  if (!session) {
+    return NextResponse.json({ authenticated: false });
+  }
+
+  return NextResponse.json({
+    authenticated: true,
+    email: session.email,
+    expiresAt: session.exp
+  });
+}
+
+export async function POST(request: NextRequest) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ message: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const logoutResult = logoutSchema.safeParse(payload);
+  if (logoutResult.success) {
+    const response = NextResponse.json({ authenticated: false });
+    clearAccessCookie(response);
+    return response;
+  }
+
+  const result = verifySchema.safeParse(payload);
+  if (!result.success) {
     return NextResponse.json(
-      { error: "Missing order_id query parameter" },
+      {
+        message: "Submit a valid checkout email to unlock access."
+      },
       { status: 400 }
     );
   }
 
-  const purchase = await getPurchaseByOrderId(orderId);
+  const { email } = result.data;
+  const hasAccess = await hasPaidEmail(email);
 
-  if (!purchase || purchase.status !== "paid") {
+  if (!hasAccess) {
     return NextResponse.json(
-      { error: "Order not found or not paid yet" },
-      { status: 403 }
+      {
+        message:
+          "No purchase found for that email yet. Stripe webhooks can take a few seconds; try again shortly."
+      },
+      { status: 401 }
     );
   }
 
-  const redirectUrl = new URL("/browse", request.url);
-  const response = NextResponse.redirect(redirectUrl);
-  return setAccessCookie(response, orderId);
-}
+  const normalizedEmail = email.toLowerCase();
+  const token = createAccessToken(normalizedEmail);
 
-export async function POST(request: NextRequest) {
-  const body = (await request.json()) as { orderId?: string };
-
-  if (!body.orderId) {
-    return NextResponse.json({ error: "orderId is required" }, { status: 400 });
-  }
-
-  const purchase = await getPurchaseByOrderId(body.orderId);
-  if (!purchase || purchase.status !== "paid") {
-    return NextResponse.json({ error: "Order invalid" }, { status: 403 });
-  }
-
-  const response = NextResponse.json({ ok: true });
-  return setAccessCookie(response, body.orderId);
+  const response = NextResponse.json({
+    authenticated: true,
+    email: normalizedEmail,
+    accessToken: token
+  });
+  setAccessCookie(response, normalizedEmail, token);
+  response.headers.set("x-access-token", token);
+  return response;
 }

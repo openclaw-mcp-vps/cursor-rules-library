@@ -1,75 +1,165 @@
-import { promises as fs } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { PurchaseRecord, Rule } from "@/types/rule";
 
-const dataDir = path.join(process.cwd(), "data");
-const rulesPath = path.join(dataDir, "rules.json");
-const purchasesPath = path.join(dataDir, "purchases.json");
+export type Rule = {
+  id: number;
+  slug: string;
+  name: string;
+  framework: string;
+  category: string;
+  summary: string;
+  whenToUse: string;
+  maintainer: string;
+  downloads: number;
+  tags: string[];
+  updatedAt: string;
+  isPremium: boolean;
+  content: string;
+};
 
-async function readJsonFile<T>(filePath: string): Promise<T> {
-  const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw) as T;
-}
+type PurchaseRecord = {
+  email: string;
+  purchasedAt: string;
+  source: "stripe-webhook" | "manual";
+  checkoutSessionId?: string;
+};
 
-async function ensurePurchasesFile() {
+type RuleQuery = {
+  query?: string;
+  framework?: string;
+  includePremium?: boolean;
+  limit?: number;
+};
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const RULES_PATH = path.join(DATA_DIR, "rules.json");
+const PURCHASES_PATH = path.join(DATA_DIR, "purchases.json");
+
+let rulesCache: Rule[] | null = null;
+
+async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
   try {
-    await fs.access(purchasesPath);
+    const raw = await readFile(filePath, "utf-8");
+    return JSON.parse(raw) as T;
   } catch {
-    await fs.mkdir(dataDir, { recursive: true });
-    await fs.writeFile(purchasesPath, "[]\n", "utf8");
+    return fallback;
   }
 }
 
-export async function getRules(): Promise<Rule[]> {
-  const rules = await readJsonFile<Rule[]>(rulesPath);
-  return rules.sort((a, b) => a.name.localeCompare(b.name));
+async function writeJsonFile<T>(filePath: string, data: T) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
 }
 
-export async function getFeaturedRules(limit = 9): Promise<Rule[]> {
-  const rules = await getRules();
-  return rules.filter((rule) => rule.featured).slice(0, limit);
+export async function getAllRules(): Promise<Rule[]> {
+  if (rulesCache) {
+    return rulesCache;
+  }
+
+  const rules = await readJsonFile<Rule[]>(RULES_PATH, []);
+  const normalized = rules
+    .filter((rule) => !!rule.slug)
+    .sort((a, b) => b.downloads - a.downloads || a.framework.localeCompare(b.framework));
+
+  rulesCache = normalized;
+  return normalized;
 }
 
-export async function getRuleBySlug(slug: string): Promise<Rule | null> {
-  const rules = await getRules();
+export async function findRuleBySlug(slug: string): Promise<Rule | null> {
+  const rules = await getAllRules();
   return rules.find((rule) => rule.slug === slug) ?? null;
 }
 
 export async function getFrameworks(): Promise<string[]> {
-  const rules = await getRules();
-  return [...new Set(rules.map((rule) => rule.framework))].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const rules = await getAllRules();
+  return [...new Set(rules.map((rule) => rule.framework))].sort((a, b) => a.localeCompare(b));
 }
 
-export async function getRecentWeeklyRules(limit = 8): Promise<Rule[]> {
-  const rules = await getRules();
-  return rules.filter((rule) => rule.weeklyNew).slice(0, limit);
-}
+export async function searchRules({
+  query,
+  framework,
+  includePremium = true,
+  limit
+}: RuleQuery = {}): Promise<Rule[]> {
+  const rules = await getAllRules();
+  const normalizedQuery = query?.trim().toLowerCase();
 
-export async function getPurchases(): Promise<PurchaseRecord[]> {
-  await ensurePurchasesFile();
-  const rows = await readJsonFile<PurchaseRecord[]>(purchasesPath);
-  return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
+  const filtered = rules.filter((rule) => {
+    if (!includePremium && rule.isPremium) {
+      return false;
+    }
 
-export async function getPurchaseByOrderId(
-  orderId: string
-): Promise<PurchaseRecord | null> {
-  const purchases = await getPurchases();
-  return purchases.find((row) => row.orderId === orderId) ?? null;
-}
+    if (framework && framework !== "all" && rule.framework !== framework) {
+      return false;
+    }
 
-export async function upsertPurchase(record: PurchaseRecord): Promise<void> {
-  await ensurePurchasesFile();
-  const purchases = await getPurchases();
-  const index = purchases.findIndex((row) => row.orderId === record.orderId);
+    if (!normalizedQuery) {
+      return true;
+    }
 
-  if (index >= 0) {
-    purchases[index] = { ...purchases[index], ...record };
-  } else {
-    purchases.push(record);
+    return (
+      rule.framework.toLowerCase().includes(normalizedQuery) ||
+      rule.name.toLowerCase().includes(normalizedQuery) ||
+      rule.summary.toLowerCase().includes(normalizedQuery) ||
+      rule.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
+    );
+  });
+
+  if (typeof limit === "number" && limit > 0) {
+    return filtered.slice(0, limit);
   }
 
-  await fs.writeFile(purchasesPath, `${JSON.stringify(purchases, null, 2)}\n`, "utf8");
+  return filtered;
+}
+
+export async function getRuleStats() {
+  const rules = await getAllRules();
+  const frameworks = await getFrameworks();
+  return {
+    totalRules: rules.length,
+    totalFrameworks: frameworks.length,
+    freeRules: rules.filter((rule) => !rule.isPremium).length,
+    premiumRules: rules.filter((rule) => rule.isPremium).length
+  };
+}
+
+export function createRulePreview(content: string, maxLines = 10) {
+  return content.split("\n").slice(0, maxLines).join("\n");
+}
+
+export async function hasPaidEmail(email: string): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const records = await readJsonFile<PurchaseRecord[]>(PURCHASES_PATH, []);
+  return records.some((record) => record.email.toLowerCase() === normalized);
+}
+
+export async function recordPaidEmail(params: {
+  email: string;
+  source?: PurchaseRecord["source"];
+  checkoutSessionId?: string;
+}) {
+  const normalized = params.email.trim().toLowerCase();
+  if (!normalized) {
+    return;
+  }
+
+  const records = await readJsonFile<PurchaseRecord[]>(PURCHASES_PATH, []);
+  const existing = records.find((record) => record.email.toLowerCase() === normalized);
+
+  if (existing) {
+    return;
+  }
+
+  records.push({
+    email: normalized,
+    purchasedAt: new Date().toISOString(),
+    source: params.source ?? "manual",
+    checkoutSessionId: params.checkoutSessionId
+  });
+
+  await writeJsonFile(PURCHASES_PATH, records);
 }
